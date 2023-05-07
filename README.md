@@ -35,9 +35,9 @@ REFERENCE_STAGE_ATTRIBUTE = IDENTIFIER, ".", STAGE_ATRIBUTES;
 VARIABLE_DECLARATION = IDENTIFIER | REFERENCE_STAGE_ATTRIBUTE, "is", EXPRESSION;
 
 
-EXPRESSION = INTEGER | IDENTIFIER | REFERENCE_STAGE_ATTRIBUTE, {("+" | "-"), INTEGER | IDENTIFIER | REFERENCE_STAGE_ATTRIBUTE};
+EXPRESSION = INTEGER | IDENTIFIER | REFERENCE_STAGE_ATTRIBUTE, {("+" | "-" | "*" | "/"), INTEGER | IDENTIFIER | REFERENCE_STAGE_ATTRIBUTE};
 
-CONDITIONAL_OPERATION = ">" | "<" | "==" | ">=" | "<=";
+CONDITIONAL_OPERATION = ">" | "<" | "==" | ">=" | "<=" | "!=";
 
 CONDITIONAL_DECLARATION = "flightStatusReport", EXPRESSION, CONDITIONAL_OPERATION, EXPRESSION, "\n", "confirm" | {(VARIABLE_DECLARATION, "\n")}, "houstonWeReadYou";
 
@@ -45,11 +45,11 @@ TIME_ATTRIBUTES = "seconds" | "minutes" | "hours";
 
 LOOP_DECLARATION = "beginBurn for", INTEGER | IDENTIFIER, TIME_ATTRIBUTES, IDENTIFIER, "\n", VARIABLE_DECLARATION | CONDITIONAL_DECLARATION, "\n", "engineShutOff";
 
-FUNCTION_DECLARATION = "Plan", "IDENTIFIER", "program requires", IDENTIFIER, "\n", {(LOOP_DECLARATION | CONDITIONAL_DECLARATION | VARIABLE_DECLARATION, "\n")}, "BuildStage";
+FUNCTION_DECLARATION = "Plan", IDENTIFIER, "requires", IDENTIFIER, "\n", {(LOOP_DECLARATION | CONDITIONAL_DECLARATION | VARIABLE_DECLARATION | "confirm", "\n")}, "BuildStage";
 
 CALL_FUNCTION = "initiate", IDENTIFIER, [{IDENTIFIER}];
 
-STRUCTURE = "INITIATING COUNTDOWN SEQUENCE", {VARIABLE_DECLARATION | STAGE_DECLARATION},FUNCTION_DECLARATION, {FUNCTION_DECLARATION}, CALL_FUNCTION, "WE HAVE LIFTOFF";
+STRUCTURE = "INITIATING COUNTDOWN SEQUENCE", {VARIABLE_DECLARATION | STAGE_DECLARATION | FUNCTION_DECLARATION | CALL_FUNCTION}, "WE HAVE LIFTOFF";
 ```
 
 ## Example Code:
@@ -65,13 +65,13 @@ StageBlueprint  command_module:
     engines is 1
 BuildStage
 
-Plan launch program requires stage
+Program launch requires stage
     beginBurn for 120 seconds stage
         flightStatusReport stage.wetMass > stage.dryMass
             confirm
         houstonWeReadYou
-    engineShutOff
-end program
+    Shutdown
+EndProgram
 
 initiate launch command_module
 
