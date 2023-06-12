@@ -4,6 +4,7 @@
 Bernardo Cunha Capoferri
 
 ## Rubric achieved: B
+Presentation in Portuguese can be foun in the file `APSLogComp.pdf`
 
 ## Objective:
 This repository contains a computing language devoloped from the ground up, It is not a general use language like Python or C++, but tailored for a specific purpose. It contains basic structure like loops and conditionals, allows for the declaration of variables and functions and allows the user to call the latter.
