@@ -161,7 +161,25 @@ class FuncCall(Node):
         result = func.children[-1].evaluate(new_symbol_table)
         if func.value != result[0]:
             raise Exception("Variable type mismatch")
-        return result 
+        return result
+
+class StageDec(Node):
+    def evaluate(self, symbol_table) -> int:
+        new_symbol_table = Symbol_table()
+        for i in range(len(self.children)-1):
+            new_symbol_table.create(self.children[i+1].value, self.children[i+1].evaluate(symbol_table))
+            new_symbol_table.setter(self.children[i+1].value, self.children[i+1].evaluate(symbol_table))
+        symbol_table.create(self.children[0].value, new_symbol_table)
+        
+class StageIdentifier(Node):
+    def evaluate(self, symbol_table) -> int:
+        stage_symbol_table = symbol_table.getter(self.value)
+        return stage_symbol_table.getter(self.children[0].value)
+
+class Burn(Node): 
+    def evaluate(self, symbol_table) -> int:
+        for i in range(self.children[0].evaluate(symbol_table)[1]):
+            self.children[1].evaluate(symbol_table)
 
 class NoOp(Node):
     pass
@@ -544,10 +562,6 @@ class Parser:
                 op = Parser.tknzr.next_token.value
                 Parser.tknzr.selectNext()
                 node = BinOp(op,[node, Parser.parseTerm()])
-            if Parser.tknzr.next_token.type == 'concat':
-                op = Parser.tknzr.next_token.value
-                Parser.tknzr.selectNext()
-                node = BinOp(op,[node, Parser.parseTerm()])
         return node
     
     @staticmethod
@@ -593,34 +607,45 @@ class Parser:
             node = IntVal(Parser.tknzr.next_token.value)
             Parser.tknzr.selectNext()
             return node
-        if Parser.tknzr.next_token.type == str:
-            node = StrVal(Parser.tknzr.next_token.value)
-            Parser.tknzr.selectNext()
-            return node
+        
         elif Parser.tknzr.next_token.type == 'identifier':
             node = Identifier(Parser.tknzr.next_token.value)
             iden = Parser.tknzr.next_token.value
             Parser.tknzr.selectNext()
-            if Parser.tknzr.next_token.type == OPENKEY:
-                node = FuncCall(iden, [])
-                childNodes = []
+            if Parser.tknzr.next_token.type == 'dot':
                 Parser.tknzr.selectNext()
-                while Parser.tknzr.next_token.type != CLOSEKEY:
-                    if Parser.tknzr.next_token.type == 'newline':
-                        raise Exception("Syntax error")
-                    childNodes.append(Parser.parseRelationalExpression())
-                    if Parser.tknzr.next_token.type == 'comma':
-                        Parser.tknzr.selectNext()
-                        if Parser.tknzr.next_token.type == CLOSEKEY:
-                            raise Exception("Syntax error")
-                node.children = childNodes
-                Parser.tknzr.selectNext()
+                if Parser.tknzr.next_token.type == 'identifier':
+                    node = StageIdentifier(iden, [node, Identifier(Parser.tknzr.next_token.value)])
+                    Parser.tknzr.selectNext()
+                    return node
+                else:
+                    raise Exception("Syntax error")    
             return node
+        
+        elif Parser.tknzr.next_token.type == 'initiate':
+            node = FuncCall(Parser.tknzr.next_token.value, [])
+            Parser.tknzr.selectNext()
+            if Parser.tknzr.next_token.type != 'identifier':
+                raise Exception("Syntax error")
+            identifier = Identifier(Parser.tknzr.next_token.value)
+            node.children.append(identifier)
+            Parser.tknzr.selectNext()
+            if Parser.tknzr.next_token.type != 'identifier':
+                raise Exception("Syntax error")
+            identifier = Identifier(Parser.tknzr.next_token.value)
+            node.children.append(identifier)
+            Parser.tknzr.selectNext()
+            if Parser.tknzr.next_token.type != 'newline':
+                raise Exception("Syntax error")
+            Parser.tknzr.selectNext()
+            return node
+        
         elif Parser.tknzr.next_token.type == PLUS or Parser.tknzr.next_token.type == MINUS or Parser.tknzr.next_token.type == 'not':
             op = Parser.tknzr.next_token.value
             Parser.tknzr.selectNext()
             node = UnOp(op, [Parser.parseFactor()])   
             return node
+        
         elif Parser.tknzr.next_token.type == OPENKEY:
             Parser.tknzr.selectNext()
             node = Parser.parseRelationalExpression()
@@ -629,6 +654,7 @@ class Parser:
                 return node
             else:
                 raise Exception
+            
         elif Parser.tknzr.next_token.type == 'reserved':
             if Parser.tknzr.next_token.value != 'readline':
                 raise Exception("Syntax error")
