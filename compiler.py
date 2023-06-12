@@ -353,15 +353,6 @@ class Tokenizer:
                         self.next_token = Token(self.token, 'time')
                     elif self.token == 'confirm':
                         self.next_token = Token(self.token, 'NOP')
-                    
-                    # if self.token == 'Int' or self.token == 'String':
-                    #     self.next_token = Token(self.token, 'type')
-                    # elif self.token == 'function':
-                    #     self.next_token = Token(self.token, 'function')
-                    # elif self.token == 'return':
-                    #     self.next_token = Token(self.token, 'return')
-                    # else:
-                    #     self.next_token = Token(self.token, 'reserved')
                 return self.next_token
 
 class Parser:
@@ -490,16 +481,7 @@ class Parser:
             Parser.tknzr.selectNext()
             if Parser.tknzr.next_token.type != 'Int':
                 raise Exception("Syntax error")
-            node.children.append(IntVal(Parser.tknzr.next_token.value))
-            Parser.tknzr.selectNext()
-            if Parser.tknzr.next_token.type != 'time':
-                raise Exception("Syntax error")
-            node.children.append(Parser.tknzr.next_token.value)
-            Parser.tknzr.selectNext()
-            if Parser.tknzr.next_token.type != 'identifier':
-                raise Exception("Syntax error")
-            identifier = Identifier(Parser.tknzr.next_token.value)
-            node.children.append(identifier)
+            node.children.append(Parser.parseExpression())
             Parser.tknzr.selectNext()
             if Parser.tknzr.next_token.type != 'newline':
                 raise Exception("Syntax error")
