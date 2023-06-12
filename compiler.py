@@ -8,7 +8,7 @@ DIV = 5
 OPENKEY = 6
 CLOSEKEY = 7
 
-reserved_words = ['INITIATING COUNTDOWN SEQUENCE', 'WE HAVE LIFTOFF', 'StageBlueprint', 'BuildStage', 'Program', 'requires', 'EndProgram', 'initiate', 'beginBurn', 'for', 'Shutdown', 'flightStatusReport', 'else', 'houstonWeReadYou', 'is', 'seconds', 'minutes', 'hours', 'confirm', 'end', 'Int', 'String', 'function', 'return']
+reserved_words = ['INITIATING_COUNTDOWN_SEQUENCE', 'WE_HAVE_LIFTOFF', 'StageBlueprint', 'BuildStage', 'Program', 'requires', 'EndProgram', 'initiate', 'beginBurn', 'for', 'Shutdown', 'flightStatusReport', 'else', 'houstonWeReadYou', 'is', 'seconds', 'minutes', 'hours', 'confirm', 'end', 'Int', 'String', 'function', 'return', 'print']
 
 class Node:
     def __init__(self, value: str, children: list):
@@ -112,7 +112,7 @@ class Identifier(Node):
     def evaluate(self, symbol_table) -> int:
         return symbol_table.getter(self.value)
 
-class Println(Node):
+class Print(Node):
     def evaluate(self, symbol_table) -> int:
         print(self.children[0].evaluate(symbol_table)[1])
     
@@ -152,13 +152,12 @@ class FuncDec(Node):
 class FuncCall(Node):
     def evaluate(self, symbol_table) -> int:
         func = Func_table.getter(self.value)
+        stage = symbol_table.getter(func.children[1].value)
         new_symbol_table = Symbol_table()
-        for i in range(len(func.children)-2):
-            new_symbol_table.create(func.children[i+1].children[0].value, self.children[i].evaluate(symbol_table))
-            new_symbol_table.setter(func.children[i+1].children[0].value, self.children[i].evaluate(symbol_table))
-            if self.children[i].evaluate(symbol_table)[0] != func.children[i+1].value:
-                raise Exception("Variable type mismatch")
+        new_symbol_table.create(func.children[1].value, stage)
+        new_symbol_table.setter(func.children[1].value, stage)
         result = func.children[-1].evaluate(new_symbol_table)
+
         if func.value != result[0]:
             raise Exception("Variable type mismatch")
         return result
@@ -175,6 +174,12 @@ class StageIdentifier(Node):
     def evaluate(self, symbol_table) -> int:
         stage_symbol_table = symbol_table.getter(self.value)
         return stage_symbol_table.getter(self.children[0].value)
+    
+class StageAssignment(Node):
+    def evaluate(self, symbol_table) -> int:
+        stage_symbol_table = symbol_table.getter(self.value)
+        stage_symbol_table.setter(self.children[0].value, self.children[1].evaluate(symbol_table))
+        symbol_table.setter(self.value, stage_symbol_table)
 
 class Burn(Node): 
     def evaluate(self, symbol_table) -> int:
@@ -194,7 +199,7 @@ class Symbol_table():
             raise Exception("Variable not defined")
     def setter(self, key, value):
         if key not in self.var_dict:
-            raise Exception("Variable not defined")
+            raise Exception(f"Variable {key} not defined")
         if value[0] != self.var_dict[key][0]:
             raise Exception("Variable type mismatch")
         self.var_dict[key] = value
@@ -306,6 +311,10 @@ class Tokenizer:
                 self.next_token = Token('!', 'not')
                 self.position += 1
                 return self.next_token
+            elif char == ':' and self.token == '':
+                self.next_token = Token(':', 'colon')
+                self.position += 1
+                return self.next_token
             elif char == '|' and self.token == '':
                 if(self.source_code[self.position+1] == '|'):
                     self.next_token = Token('||', 'or')
@@ -335,9 +344,9 @@ class Tokenizer:
                 self.position += 1
             else:
                 if self.token in reserved_words:
-                    if self.token == 'INITIATING COUNTDOWN SEQUENCE':
+                    if self.token == 'INITIATING_COUNTDOWN_SEQUENCE':
                         self.next_token = Token(self.token, 'start_sequence')
-                    elif self.token == 'WE HAVE LIFTOFF':
+                    elif self.token == 'WE_HAVE_LIFTOFF':
                         self.next_token = Token(self.token, 'end_sequence')
                     elif self.token == 'StageBlueprint':
                         self.next_token = Token(self.token, 'start_stage')
@@ -371,6 +380,8 @@ class Tokenizer:
                         self.next_token = Token(self.token, 'time')
                     elif self.token == 'confirm':
                         self.next_token = Token(self.token, 'NOP')
+                    elif self.token == 'print':
+                        self.next_token = Token(self.token, 'print')
                 return self.next_token
 
 class Parser:
@@ -382,6 +393,7 @@ class Parser:
         Parser.tknzr.selectNext()
         if Parser.tknzr.next_token.type != 'start_sequence':
             raise Exception("Syntax error, program should start with INITIATING COUNTDOWN SEQUENCE")
+        Parser.tknzr.selectNext()
         while Parser.tknzr.next_token.type != 'end_sequence':
             node.children.append(Parser.parseStatement())
             if Parser.tknzr.next_token.type == EOF:
@@ -392,28 +404,25 @@ class Parser:
     def parseStatement():
         if Parser.tknzr.next_token.type == 'identifier':
             identifier = Identifier(Parser.tknzr.next_token.value)
+            id = Parser.tknzr.next_token.value
             Parser.tknzr.selectNext()
+            if Parser.tknzr.next_token.type == 'dot':
+                Parser.tknzr.selectNext()
+                if Parser.tknzr.next_token.type == 'identifier':
+                    identifier2 = Identifier(Parser.tknzr.next_token.value)
+                    Parser.tknzr.selectNext()
+                    if Parser.tknzr.next_token.type == 'assignment':
+                        Parser.tknzr.selectNext()
+                        node = StageAssignment(id, [identifier2, Parser.parseExpression()])
+                        if Parser.tknzr.next_token.type != 'newline':
+                            raise Exception("Syntax error")
+                        Parser.tknzr.selectNext()
+                        return node
+                    else:
+                        raise Exception("Syntax error")
             if Parser.tknzr.next_token.type == 'assignment':
                 Parser.tknzr.selectNext()
                 node = Assignment("", [identifier, Parser.parseExpression()])
-                if Parser.tknzr.next_token.type != 'newline':
-                    raise Exception("Syntax error")
-                Parser.tknzr.selectNext()
-                return node
-            elif Parser.tknzr.next_token.type == OPENKEY:
-                node = FuncCall(Parser.tknzr.next_token.value, [])
-                childNodes = []
-                while Parser.tknzr.next_token.type != CLOSEKEY:
-                    if Parser.tknzr.next_token.type == 'newline':
-                        raise Exception("Syntax error")
-                    Parser.tknzr.selectNext()
-                    childNodes.append(Parser.parseRelationalExpression())
-                    if Parser.tknzr.next_token.type == 'comma':
-                        Parser.tknzr.selectNext()
-                        if Parser.tknzr.next_token.type == CLOSEKEY:
-                            raise Exception("Syntax error")
-                node.children = childNodes
-                Parser.tknzr.selectNext()
                 if Parser.tknzr.next_token.type != 'newline':
                     raise Exception("Syntax error")
                 Parser.tknzr.selectNext()
@@ -429,6 +438,9 @@ class Parser:
             identifier = Identifier(Parser.tknzr.next_token.value)
             node.children.append(identifier)
             Parser.tknzr.selectNext()
+            if Parser.tknzr.next_token.type != 'colon':
+                raise Exception("Syntax error")
+            Parser.tknzr.selectNext()
             if Parser.tknzr.next_token.type != 'newline':
                 raise Exception("Syntax error")
             Parser.tknzr.selectNext()
@@ -438,7 +450,7 @@ class Parser:
                 if Parser.tknzr.next_token.type == 'identifier':
                     identifier = Identifier(Parser.tknzr.next_token.value)
                     Parser.tknzr.selectNext()
-                    if Parser.tknzr.next_token.type != 'is':
+                    if Parser.tknzr.next_token.type != 'assignment':
                         raise Exception("Syntax error")
                     Parser.tknzr.selectNext()
                     node.children.append(VarDec('Int', [identifier, Parser.parseExpression()]))
@@ -446,7 +458,17 @@ class Parser:
                     Parser.tknzr.selectNext()
                 else:
                     raise Exception("Syntax error")
+            Parser.tknzr.selectNext()
+            return node
         
+        elif Parser.tknzr.next_token.type == 'return':
+            Parser.tknzr.selectNext()
+            node = Return("return", [Parser.parseRelationalExpression()])
+            if Parser.tknzr.next_token.type != 'newline':
+                raise Exception("Syntax error")
+            Parser.tknzr.selectNext()
+            return node
+
         elif Parser.tknzr.next_token.type == 'start_program':
             node = FuncDec(Parser.tknzr.next_token.value, [])
             Parser.tknzr.selectNext()
@@ -461,7 +483,7 @@ class Parser:
             if Parser.tknzr.next_token.type != 'identifier':
                 raise Exception("Syntax error")
             identifier = Identifier(Parser.tknzr.next_token.value)
-            node.children.append(VarDec('Int', [identifier]))
+            node.children.append(StageDec(Parser.tknzr.next_token.value, []))
             Parser.tknzr.selectNext()
             if Parser.tknzr.next_token.type != 'newline':
                 raise Exception("Syntax error")
@@ -479,6 +501,9 @@ class Parser:
             return node
         
         elif Parser.tknzr.next_token.type == 'initiate':
+            Parser.tknzr.selectNext()
+            if Parser.tknzr.next_token.type != 'identifier':
+                raise Exception("Syntax error")
             node = FuncCall(Parser.tknzr.next_token.value, [])
             Parser.tknzr.selectNext()
             if Parser.tknzr.next_token.type != 'identifier':
@@ -497,10 +522,7 @@ class Parser:
             if Parser.tknzr.next_token.type != 'for':
                 raise Exception("Syntax error")
             Parser.tknzr.selectNext()
-            if Parser.tknzr.next_token.type != 'Int':
-                raise Exception("Syntax error")
             node.children.append(Parser.parseExpression())
-            Parser.tknzr.selectNext()
             if Parser.tknzr.next_token.type != 'newline':
                 raise Exception("Syntax error")
             Parser.tknzr.selectNext()
@@ -530,7 +552,23 @@ class Parser:
             Parser.tknzr.selectNext()
             node = If("", [nodeRelExp, nodeIf])
             return node
-            
+        
+        elif Parser.tknzr.next_token.type == 'print':
+            Parser.tknzr.selectNext()
+            if Parser.tknzr.next_token.type == OPENKEY:
+                Parser.tknzr.selectNext()
+                node = Print("", [Parser.parseRelationalExpression()])
+                if Parser.tknzr.next_token.type == CLOSEKEY:
+                    Parser.tknzr.selectNext()
+                    if Parser.tknzr.next_token.type != 'newline':
+                        raise Exception("Syntax error")
+                    Parser.tknzr.selectNext()
+                    return node
+                else:
+                    raise Exception("Syntax error")
+            else:
+                raise Exception("Syntax error")
+        
         elif Parser.tknzr.next_token.type == 'NOP':
             Parser.tknzr.selectNext()
             if Parser.tknzr.next_token.type != 'newline':
@@ -544,6 +582,7 @@ class Parser:
             return node
         
         else:
+            print(Parser.tknzr.next_token.value)
             raise Exception("Syntax error")
 
     @staticmethod
@@ -623,12 +662,10 @@ class Parser:
             return node
         
         elif Parser.tknzr.next_token.type == 'initiate':
-            node = FuncCall(Parser.tknzr.next_token.value, [])
             Parser.tknzr.selectNext()
             if Parser.tknzr.next_token.type != 'identifier':
                 raise Exception("Syntax error")
-            identifier = Identifier(Parser.tknzr.next_token.value)
-            node.children.append(identifier)
+            node = FuncCall(Parser.tknzr.next_token.value, [])
             Parser.tknzr.selectNext()
             if Parser.tknzr.next_token.type != 'identifier':
                 raise Exception("Syntax error")
@@ -678,7 +715,7 @@ class Parser:
         code = pre_pro.filter()
         Parser.tknzr = Tokenizer(code)
         root_node = Parser.parseBlock()
-        if Parser.tknzr.next_token.type == EOF:
+        if Parser.tknzr.next_token.type == 'end_sequence':
             general_symbol_table = Symbol_table()
             root_node.evaluate(general_symbol_table)
         else:
@@ -686,8 +723,8 @@ class Parser:
         return None    
 
 def main():
-    #operation = open('test.jl').read()
-    operation = open(sys.argv[1]).read()
+    operation = open('test.jl').read()
+    #operation = open(sys.argv[1]).read()
     engine = Parser()
     engine.run(operation)
 

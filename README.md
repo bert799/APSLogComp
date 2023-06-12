@@ -66,18 +66,13 @@ BuildStage
 Program launch requires stage
     beginBurn for 120
         flightStatusReport stage.wetMass > stage.dryMass
-            confirm
+            stage.wetMass -= 5
         houstonWeReadYou
     Shutdown
+    print(stage.wetMass)
 EndProgram
 
 initiate launch command_module
 
 WE HAVE LIFTOFF
 ```
-
-# IDEIA MALUCA
-Só pode declarar variável em stageblueprint (díficil de implementar.),
-programa só tem contexto das variáveis do stage enviado a elas
-burn faz x loops definidos como os segundos.
-flight status report ta certo.
