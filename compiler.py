@@ -714,8 +714,8 @@ class Parser:
         return None    
 
 def main():
-    operation = open('test.jl').read()
-    #operation = open(sys.argv[1]).read()
+    #operation = open('test.apl').read()
+    operation = open(sys.argv[1]).read()
     engine = Parser()
     engine.run(operation)
 
