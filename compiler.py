@@ -152,28 +152,23 @@ class FuncDec(Node):
 class FuncCall(Node):
     def evaluate(self, symbol_table) -> int:
         func = Func_table.getter(self.value)
-        stage = symbol_table.getter(func.children[1].value)
+        stage = symbol_table.getter(self.children[0].value)
         new_symbol_table = Symbol_table()
         new_symbol_table.create(func.children[1].value, stage)
-        new_symbol_table.setter(func.children[1].value, stage)
         result = func.children[-1].evaluate(new_symbol_table)
-
-        if func.value != result[0]:
-            raise Exception("Variable type mismatch")
         return result
 
 class StageDec(Node):
     def evaluate(self, symbol_table) -> int:
         new_symbol_table = Symbol_table()
         for i in range(len(self.children)-1):
-            new_symbol_table.create(self.children[i+1].value, self.children[i+1].evaluate(symbol_table))
-            new_symbol_table.setter(self.children[i+1].value, self.children[i+1].evaluate(symbol_table))
+            new_symbol_table.create(self.children[i+1].children[0].value, self.children[i+1].children[1].evaluate(symbol_table))
         symbol_table.create(self.children[0].value, new_symbol_table)
         
 class StageIdentifier(Node):
     def evaluate(self, symbol_table) -> int:
         stage_symbol_table = symbol_table.getter(self.value)
-        return stage_symbol_table.getter(self.children[0].value)
+        return stage_symbol_table.getter(self.children[1].value)
     
 class StageAssignment(Node):
     def evaluate(self, symbol_table) -> int:
@@ -196,16 +191,12 @@ class Symbol_table():
         if key in self.var_dict:
             return self.var_dict[key]
         else:
-            raise Exception("Variable not defined")
-    def setter(self, key, value):
-        if key not in self.var_dict:
             raise Exception(f"Variable {key} not defined")
-        if value[0] != self.var_dict[key][0]:
-            raise Exception("Variable type mismatch")
+    def setter(self, key, value):
         self.var_dict[key] = value
     def create(self, key, value):
         if key in self.var_dict:
-            raise Exception("Variable already defined")
+            raise Exception(f'Variable {key} already defined')
         self.var_dict[key] = value
 
 class Func_table():
@@ -453,7 +444,7 @@ class Parser:
                     if Parser.tknzr.next_token.type != 'assignment':
                         raise Exception("Syntax error")
                     Parser.tknzr.selectNext()
-                    node.children.append(VarDec('Int', [identifier, Parser.parseExpression()]))
+                    node.children.append(Assignment('', [identifier, Parser.parseExpression()]))
                 if Parser.tknzr.next_token.type == 'newline':
                     Parser.tknzr.selectNext()
                 else:
