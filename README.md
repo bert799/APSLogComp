@@ -39,20 +39,25 @@ CONDITIONAL_OPERATION = ">" | "<" | "==" | ">=" | "<=" | "!=" | "&&" | "||";
 
 CONDITIONAL_DECLARATION = "flightStatusReport", EXPRESSION, CONDITIONAL_OPERATION, EXPRESSION, "\n", "confirm" | {(VARIABLE_DECLARATION, "\n")}, "houstonWeReadYou";
 
-TIME_ATTRIBUTES = "seconds" | "minutes" | "hours";
-
 LOOP_DECLARATION = "beginBurn for", EXPRESSION, "\n", {VARIABLE_DECLARATION | STAGE_DECLARATION | FUNCTION_DECLARATION | CALL_FUNCTION}, "\n", "engineShutOff";
 
-FUNCTION_DECLARATION = "Plan", IDENTIFIER, "requires", IDENTIFIER, "\n", {(LOOP_DECLARATION | CONDITIONAL_DECLARATION | VARIABLE_DECLARATION | "confirm", "\n")}, "BuildStage";
+FUNCTION_DECLARATION = "Program", IDENTIFIER, "requires", IDENTIFIER, "\n", {(LOOP_DECLARATION | CONDITIONAL_DECLARATION | VARIABLE_DECLARATION | "PRINT" | "RETURN" | "confirm", "\n")}, "EndProgram";
 
 CALL_FUNCTION = "initiate", IDENTIFIER, [{IDENTIFIER}];
 
-STRUCTURE = "INITIATING COUNTDOWN SEQUENCE", {VARIABLE_DECLARATION | STAGE_DECLARATION | FUNCTION_DECLARATION | CALL_FUNCTION}, "WE HAVE LIFTOFF";
+PRINT = "print", "(", EXPRESSION,")", "\n"
+
+RETURN = "return", EXPRESSION, "\n"
+
+STRUCTURE = "INITIATING COUNTDOWN SEQUENCE", {VARIABLE_DECLARATION | STAGE_DECLARATION | FUNCTION_DECLARATION | CALL_FUNCTION | PRINT}, "WE HAVE LIFTOFF";
 ```
+
+## Implementation
+To create the compiler for the language above, a Julia compiler made using python was repurposed to identify and interpret it. The code for it can be found in the file `compiler.py` and it was tested to run the following code to verify it's basic functionality.
 
 ## Example Code:
 ```
-INITIATING COUNTDOWN SEQUENCE
+INITIATING_COUNTDOWN_SEQUENCE
 
 engine_specific_impulse is 150
 
@@ -64,9 +69,9 @@ StageBlueprint  command_module:
 BuildStage
 
 Program launch requires stage
-    beginBurn for 120
+    beginBurn for 80
         flightStatusReport stage.wetMass > stage.dryMass
-            stage.wetMass -= 5
+            stage.wetMass is stage.wetMass - 5
         houstonWeReadYou
     Shutdown
     print(stage.wetMass)
@@ -74,5 +79,13 @@ EndProgram
 
 initiate launch command_module
 
-WE HAVE LIFTOFF
+WE_HAVE_LIFTOFF
+```
+
+Expected result for the code above is for it to print 600.
+
+To test it, create a file with the extension ".apl" and run the following command:
+
+``` bash
+python3 compiler.py <fileNameHere>.jl
 ```
